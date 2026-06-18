@@ -1,0 +1,31 @@
+---
+title: "HUDM - 5123 Final Project"
+author: "Jon Zhang"
+date: "2026-06-18"
+output: html_document
+---
+
+```{r}
+# Packages
+library(httr)
+library(readxl)
+```
+
+
+```{r}
+# 2. Define the RAW GitHub URL (Must end in .xlsx or .xls)
+github_raw_url <- "https://github.com/ZeddyCraft/HUDM-5123-Final-Project/raw/refs/heads/main/Raw%20Data.xlsx"
+
+# 3. Create a temporary local file path
+temp_file <- tempfile(fileext = ".xlsx")
+
+# 4. Download the file securely
+GET(github_raw_url, write_disk(temp_file, overwrite = TRUE))
+
+# 5. Read the Excel file into R
+data <- read_excel(temp_file)
+
+# View the first few rows
+head(data)
+```
+

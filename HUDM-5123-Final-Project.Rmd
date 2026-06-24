@@ -4,11 +4,31 @@ author: "Jon Zhang"
 date: "2026-06-18"
 output: html_document
 ---
-
+###############################################################
+# HUDM 5123 Final Project
+#
+# Replication of:
+# Champion, Economides, & Chandler (2018)
+#
+# The efficacy of a brief app-based mindfulness intervention
+# on psychosocial outcomes in healthy adults
+#
+# Author: Jonathan Zhang & Luyi Xu
+# Date: 07/01/2026
+###############################################################
+# Section 1: Load Packages
 ```{r}
 # Packages
 library(httr)
 library(readxl)
+library(tidyverse)
+library(janitor)
+library(psych)
+library(afex)
+library(emmeans)
+library(effectsize)
+library(car)
+library(rstatix)
 ```
 
 
@@ -27,5 +47,294 @@ data <- read_excel(temp_file)
 
 # View the first few rows
 head(data)
+```
+
+# Section 2: Import and Clean the Dataset
+```{r}
+# Clean variable names
+data <- clean_names(data)
+
+# Remove completely empty rows
+data <- data %>%
+  remove_empty(which = "rows")
+
+# Create Participant ID
+data <- data %>%
+  mutate(id = 1:n())
+
+# Move ID to the first column
+data <- data %>%
+  relocate(id)
+
+glimpse(data)
+```
+#@ 2.5 Rename variables
+```{r}
+data <- data %>%
+  rename(
+    group = group_a_mindfulness_b_wait_list,
+    gender = gender_1_male_2_female,
+    
+    swls_b = swls_baseline,
+    swls_d10 = swls_day_10,
+    swls_d30 = swls_day_30,
+    
+    pss_b = pss_baseline,
+    pss_d10 = pss_day_10,
+    pss_d30 = pss_day_30,
+    
+    rws_b = rws_baseline,
+    rws_d10 = rws_day_10,
+    rws_d30 = rws_day_30,
+
+    sessions_10 = number_of_days_headspace_used_between_baseline_to_day_10,
+    sessions_30 = number_of_days_headspace_used_between_day_10_and_day_30,
+
+    enjoy_10 = to_what_to_extent_are_you_finding_completing_the_activities_enjoyable_day_10_1_not_at_all_to_7_extremely,
+    enjoy_30 = to_what_to_extent_are_you_finding_completing_the_activities_enjoyable_day_30_1_not_at_all_to_7_extremely,
+
+    difficulty_10 = to_what_extent_are_you_finding_the_activity_difficult_to_complete_day_10_1_very_difficult_to_7_very_easy,
+    difficulty_30 = to_what_extent_are_you_finding_the_activity_difficult_to_complete_day_30_1_very_difficult_to_7_very_easy
+  )
+
+data <- data %>%
+  mutate(
+    group = factor(group,
+                   levels = c("A", "B"),
+                   labels = c("Mindfulness", "Wait-list")),
+
+    gender = factor(gender,
+                    levels = c(1, 2),
+                    labels = c("Male", "Female"))
+  )
+```
+
+# Section 3: Descriptive Statistics
+```{r}
+# Number of participants in each group
+table(data$group)
+
+# Percentage in each group
+prop.table(table(data$group)) * 100
+
+# Summary of age
+describe(data$age)
+
+# Summary by group
+data %>%
+  group_by(group) %>%
+  summarise(
+    n = n(),
+    mean_age = mean(age, na.rm = TRUE),
+    sd_age = sd(age, na.rm = TRUE),
+    min_age = min(age, na.rm = TRUE),
+    max_age = max(age, na.rm = TRUE)
+  )
+
+# Gender distribution
+table(data$group, data$gender)
+
+# Gender percentages within each group
+prop.table(table(data$group,
+                 data$gender), margin = 1) * 100
+```
+
+## Section 3.1: Means and Standard Deviations
+```{r}
+data %>%
+  group_by(group) %>%
+  summarise(
+    # Satisfaction with Life
+    SWLS_B_Mean = mean(swls_b, na.rm = TRUE),
+    SWLS_B_SD   = sd(swls_b, na.rm = TRUE),
+
+    SWLS_D10_Mean = mean(swls_d10, na.rm = TRUE),
+    SWLS_D10_SD   = sd(swls_d10, na.rm = TRUE),
+
+    SWLS_D30_Mean = mean(swls_d30, na.rm = TRUE),
+    SWLS_D30_SD   = sd(swls_d30, na.rm = TRUE),
+
+    # Perceived Stress
+    PSS_B_Mean = mean(pss_b, na.rm = TRUE),
+    PSS_B_SD   = sd(pss_b, na.rm = TRUE),
+
+    PSS_D10_Mean = mean(pss_d10, na.rm = TRUE),
+    PSS_D10_SD   = sd(pss_d10, na.rm = TRUE),
+
+    PSS_D30_Mean = mean(pss_d30, na.rm = TRUE),
+    PSS_D30_SD   = sd(pss_d30, na.rm = TRUE),
+
+    # Resilience
+    RWS_B_Mean = mean(rws_b, na.rm = TRUE),
+    RWS_B_SD   = sd(rws_b, na.rm = TRUE),
+
+    RWS_D10_Mean = mean(rws_d10, na.rm = TRUE),
+    RWS_D10_SD   = sd(rws_d10, na.rm = TRUE),
+
+    RWS_D30_Mean = mean(rws_d30, na.rm = TRUE),
+    RWS_D30_SD   = sd(rws_d30, na.rm = TRUE)
+  )
+```
+
+# Section 4: Reshape the Data (wide to Long)
+```{r}
+# Satisfaction With Life Scale
+data_long <- data %>%
+  select(id, group, swls_b, swls_d10, swls_d30) %>%
+  pivot_longer(cols = starts_with("swls"), names_to = "time", values_to = "swls") %>%
+  mutate(time = case_when(
+         time == "swls_b"   ~ "Baseline",
+         time == "swls_d10" ~ "Day 10",
+         time == "swls_d30" ~ "Day 30"),
+    time = factor(time, levels = c("Baseline", "Day 10", "Day 30")))
+
+# Perceived Stress Scale (PSS)
+pss_long <- data %>%
+  select(id, group, pss_b, pss_d10, pss_d30) %>%
+  pivot_longer(cols = starts_with("pss"), names_to = "time", values_to = "pss") %>%
+  mutate(time = case_when(
+         time == "pss_b" ~ "Baseline",
+         time == "pss_d10" ~ "Day 10",
+         time == "pss_d30" ~ "Day 30"),
+    time = factor(time, levels = c("Baseline", "Day 10", "Day 30")))
+
+# Resilience Scale (RWS)
+rws_long <- data %>%
+  select(id, group, rws_b, rws_d10, rws_d30) %>%
+  pivot_longer(cols = starts_with("rws"), names_to = "time", values_to = "rws") %>%
+  mutate(time = case_when(
+         time == "rws_b" ~ "Baseline",
+         time == "rws_d10" ~ "Day 10",
+         time == "rws_d30" ~ "Day 30"),
+    time = factor(time, levels = c("Baseline", "Day 10", "Day 30")))
+
+# Check the dataset
+head(rws_long)
+glimpse(rws_long)
+```
+
+# Section 5 Assumption Checks
+## Section 5.1: Missing Data
+```{r}
+# Missing Data
+## Missing values in each long dataset
+colSums(is.na(data_long))
+colSums(is.na(pss_long))
+colSums(is.na(rws_long))
+
+## Total missing observations
+sum(is.na(data_long$swls))
+sum(is.na(pss_long$pss))
+sum(is.na(rws_long$rws))
+```
+```{r}
+# Outliers (by Boxplots)
+## SWLS
+ggplot(data_long, aes(x = time, y = swls,fill = group)) +
+  geom_boxplot() +
+  labs(title = "SWLS by Time and Group", x = "Time", y = "SWLS Score") +
+  theme_minimal()
+
+## PSS
+ggplot(pss_long, aes(x = time, y = pss, fill = group)) +
+  geom_boxplot() +
+  labs(title = "PSS by Time and Group", x = "Time", y = "PSS Score") +
+  theme_minimal()
+
+## RWS
+ggplot(rws_long, aes(x = time, y = rws, fill = group)) +
+  geom_boxplot() +
+  labs(title = "RWS by Time and Group", x = "Time", y = "RWS Score") +
+  theme_minimal()
+```
+
+```{r}
+# Outliers (by Outlier Detection)
+data_long %>%
+  group_by(group, time) %>%
+  identify_outliers(swls)
+
+pss_long %>%
+  group_by(group, time) %>%
+  identify_outliers(pss)
+
+rws_long %>%
+  group_by(group, time) %>%
+  identify_outliers(rws)
+```
+
+```{r}
+# Normality
+## SWLS
+data_long %>%
+  group_by(group, time) %>%
+  shapiro_test(swls)
+
+## PSS
+pss_long %>%
+  group_by(group, time) %>%
+  shapiro_test(pss)
+
+## RWS
+rws_long %>%
+  group_by(group, time) %>%
+  shapiro_test(rws)
+```
+
+```{r}
+## QQ Plots
+## SWLS
+ggplot(data_long, aes(sample = swls)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_grid(group ~ time) +
+  theme_minimal()
+
+## PSS
+ggplot(pss_long, aes(sample = pss)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_grid(group ~ time) +
+  theme_minimal()
+
+## RWS
+ggplot(rws_long, aes(sample = rws)) +
+  stat_qq() +
+  stat_qq_line() +
+  facet_grid(group ~ time) +
+  theme_minimal()
+```
+
+```{r}
+# Homogeneity of Variance (Levene's Test) 
+## SWLS
+leveneTest(swls ~ group * time, data = data_long)
+
+## PSS
+leveneTest(pss ~ group * time,data = pss_long)
+
+## RWS
+leveneTest(rws ~ group * time, data = rws_long)
+```
+# Mixed Repeated-Measures ANOVA
+```{r}
+###############################################################
+# Section 6.1: Mixed ANOVA - Satisfaction With Life (SWLS)
+###############################################################
+
+swls_aov <- aov_ez(
+  id = "id",
+  dv = "swls",
+  between = "group",
+  within = "time",
+  data = data_long,
+  type = 3
+)
+
+# Display ANOVA table
+summary(swls_aov)
+
+# Detailed ANOVA table
+nice(swls_aov)
 ```
 

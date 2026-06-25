@@ -338,3 +338,203 @@ summary(swls_aov)
 nice(swls_aov)
 ```
 
+```{r}
+# Section 6.2: Mixed ANOVA - Perceived Stress (PSS)
+pss_aov <- aov_ez(
+  id = "id",
+  dv = "pss",
+  between = "group",
+  within = "time",
+  data = pss_long,
+  type = 3
+)
+
+summary(pss_aov)
+
+nice(pss_aov)
+```
+
+```{r}
+# Section 6.3: Mixed ANOVA - Resilience (RWS)
+rws_aov <- aov_ez(
+  id = "id",
+  dv = "rws",
+  between = "group",
+  within = "time",
+  data = rws_long,
+  type = 3
+)
+
+summary(rws_aov)
+
+nice(rws_aov)
+```
+
+```{r}
+# Effect Sizes
+effectsize::eta_squared(swls_aov)
+effectsize::eta_squared(pss_aov)
+effectsize::eta_squared(rws_aov)
+```
+
+```{r}
+swls_results <- nice(swls_aov)
+pss_results  <- nice(pss_aov)
+rws_results  <- nice(rws_aov)
+
+swls_results
+pss_results
+rws_results
+```
+
+# Section 7: Post Hoc Comparisons
+```{r}
+# SWLS Post Hoc Comparisons
+# Estimated marginal means
+swls_emm <- emmeans(swls_aov, ~ group | time)
+
+# Compare groups at each time point
+pairs(swls_emm, adjust = "bonferroni")
+
+# Compare time points within each group
+swls_time <- emmeans(swls_aov, ~ time | group)
+pairs(swls_time, adjust = "bonferroni")
+```
+
+```{r}
+# Section 7.2: PSS Post Hoc Comparisons
+# Estimated marginal means
+pss_emm <- emmeans(pss_aov, ~ group | time)
+
+# Compare groups at each time point
+pairs(pss_emm, adjust = "bonferroni")
+
+# Compare time points within each group
+pss_time <- emmeans(pss_aov, ~ time | group)
+pairs(pss_time, adjust = "bonferroni")
+```
+
+```{r}
+# Section 7.3: RWS Post Hoc Comparisons
+# Estimated marginal means
+rws_emm <- emmeans(rws_aov, ~ group | time)
+
+# Compare groups at each time point
+pairs(rws_emm, adjust = "bonferroni")
+
+# Compare time points within each group
+rws_time <- emmeans(rws_aov, ~ time | group)
+pairs(rws_time, adjust = "bonferroni")
+```
+
+```{r}
+# Summary Table
+swls_group_results <- summary(pairs(swls_emm))
+swls_time_results <- summary(pairs(swls_time))
+
+pss_group_results <- summary(pairs(pss_emm))
+pss_time_results <- summary(pairs(pss_time))
+
+rws_group_results <- summary(pairs(rws_emm))
+rws_time_results <- summary(pairs(rws_time))
+```
+
+```{r}
+summary(swls_emm)
+summary(pss_emm)
+summary(rws_emm)
+```
+
+# Section 8: Visualizations
+```{r}
+# Summary Statistics for the Graphs
+swls_summary <- data_long %>%
+  group_by(group, time) %>%
+  summarise(
+    Mean = mean(swls, na.rm = TRUE),
+    SD = sd(swls, na.rm = TRUE),
+    N = sum(!is.na(swls)),
+    SE = SD / sqrt(N),
+    .groups = "drop"
+  )
+
+swls_summary
+
+pss_summary <- pss_long %>%
+  group_by(group, time) %>%
+  summarise(
+    Mean = mean(pss, na.rm = TRUE),
+    SD = sd(pss, na.rm = TRUE),
+    N = sum(!is.na(pss)),
+    SE = SD / sqrt(N),
+    .groups = "drop"
+  )
+
+pss_summary
+
+rws_summary <- rws_long %>%
+  group_by(group, time) %>%
+  summarise(
+    Mean = mean(rws, na.rm = TRUE),
+    SD = sd(rws, na.rm = TRUE),
+    N = sum(!is.na(rws)),
+    SE = SD / sqrt(N),
+    .groups = "drop"
+  )
+
+rws_summary
+```
+
+```{r}
+# SWLS Figure
+ggplot(swls_summary, aes(x = time, y = Mean, group = group, color = group)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(
+    ymin = Mean - SE,
+    ymax = Mean + SE),
+    width = .15) +
+  labs(
+    title = "Satisfaction with Life Across Time",
+    x = "Assessment Time",
+    y = "Mean SWLS Score",
+    color = "Group") +
+  theme_minimal(base_size = 14)
+```
+
+```{r}
+###############################################################
+# PSS Figure
+###############################################################
+
+ggplot(pss_summary, aes(x = time, y = Mean, group = group, color = group)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(
+    ymin = Mean - SE,
+    ymax = Mean + SE),
+    width = .15) +
+  labs(
+    title = "Perceived Stress Across Time",
+    x = "Assessment Time",
+    y = "Mean PSS Score",
+    color = "Group") +
+  theme_minimal(base_size = 14)
+```
+
+```{r}
+# RWS Figure
+ggplot(rws_summary, aes(x = time, y = Mean, group = group, color = group)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(
+    ymin = Mean - SE,
+    ymax = Mean + SE),
+    width = .15) +
+  labs(title = "Resilience Across Time",
+    x = "Assessment Time",
+    y = "Mean RWS Score",
+    color = "Group") +
+  theme_minimal(base_size = 14)
+```
+

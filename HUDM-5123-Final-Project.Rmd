@@ -16,24 +16,24 @@ output: html_document
 # Author: Jonathan Zhang & Luyi Xu
 # Date: 07/01/2026
 ###############################################################
-# Section 1: Load Packages
+# Load the Packages
 ```{r}
 # Packages
 library(httr)
-library(readxl)
-library(tidyverse)
+library(readxl) # for reading .xlsx files
+library(tidyverse) # using dylpr & recoding
 library(janitor)
 library(psych)
 library(afex)
-library(emmeans)
-library(effectsize)
+library(emmeans) # to compute estemated marginal means
+library(effectsize) # to compute effect sizes
 library(car)
 library(rstatix)
 ```
 
-
+# Uploading the Dataset
 ```{r}
-# 2. Define the RAW GitHub URL (Must end in .xlsx or .xls)
+# Define the RAW GitHub URL (As dataset is in .xlsx)
 github_raw_url <- "https://github.com/ZeddyCraft/HUDM-5123-Final-Project/raw/refs/heads/main/Raw%20Data.xlsx"
 
 # 3. Create a temporary local file path
@@ -45,11 +45,11 @@ GET(github_raw_url, write_disk(temp_file, overwrite = TRUE))
 # 5. Read the Excel file into R
 data <- read_excel(temp_file)
 
-# View the first few rows
+# View the first few rows of the data
 head(data)
 ```
 
-# Section 2: Import and Clean the Dataset
+# Importing and Cleaning the Dataset
 ```{r}
 # Clean variable names
 data <- clean_names(data)
@@ -66,9 +66,10 @@ data <- data %>%
 data <- data %>%
   relocate(id)
 
+# View the cleaned data
 glimpse(data)
 ```
-#@ 2.5 Rename variables
+# Rename variables
 ```{r}
 data <- data %>%
   rename(
@@ -109,7 +110,7 @@ data <- data %>%
   )
 ```
 
-# Section 3: Descriptive Statistics
+# Descriptive Statistics
 ```{r}
 # Number of participants in each group
 table(data$group)
@@ -139,8 +140,8 @@ prop.table(table(data$group,
                  data$gender), margin = 1) * 100
 ```
 
-## Section 3.1: Means and Standard Deviations
 ```{r}
+# Means and Standard Deviations
 data %>%
   group_by(group) %>%
   summarise(
@@ -176,7 +177,7 @@ data %>%
   )
 ```
 
-# Section 4: Reshape the Data (wide to Long)
+# Reshaping the Data (wide to Long)
 ```{r}
 # Satisfaction With Life Scale
 data_long <- data %>%
@@ -213,8 +214,7 @@ head(rws_long)
 glimpse(rws_long)
 ```
 
-# Section 5 Assumption Checks
-## Section 5.1: Missing Data
+# Assumption Checking
 ```{r}
 # Missing Data
 ## Missing values in each long dataset
@@ -318,18 +318,14 @@ leveneTest(rws ~ group * time, data = rws_long)
 ```
 # Mixed Repeated-Measures ANOVA
 ```{r}
-###############################################################
-# Section 6.1: Mixed ANOVA - Satisfaction With Life (SWLS)
-###############################################################
-
+# Satisfaction With Life (SWLS)
 swls_aov <- aov_ez(
   id = "id",
   dv = "swls",
   between = "group",
   within = "time",
   data = data_long,
-  type = 3
-)
+  type = 3)
 
 # Display ANOVA table
 summary(swls_aov)
@@ -339,18 +335,19 @@ nice(swls_aov)
 ```
 
 ```{r}
-# Section 6.2: Mixed ANOVA - Perceived Stress (PSS)
+# Perceived Stress (PSS)
 pss_aov <- aov_ez(
   id = "id",
   dv = "pss",
   between = "group",
   within = "time",
   data = pss_long,
-  type = 3
-)
+  type = 3)
 
+# Display ANOVA table
 summary(pss_aov)
 
+# Detailed ANOVA table
 nice(pss_aov)
 ```
 
@@ -362,11 +359,12 @@ rws_aov <- aov_ez(
   between = "group",
   within = "time",
   data = rws_long,
-  type = 3
-)
+  type = 3)
 
+# Display ANOVA table
 summary(rws_aov)
 
+# Detailed ANOVA table
 nice(rws_aov)
 ```
 
@@ -378,6 +376,7 @@ effectsize::eta_squared(rws_aov)
 ```
 
 ```{r}
+# Table the results
 swls_results <- nice(swls_aov)
 pss_results  <- nice(pss_aov)
 rws_results  <- nice(rws_aov)
@@ -387,7 +386,7 @@ pss_results
 rws_results
 ```
 
-# Section 7: Post Hoc Comparisons
+# Post Hoc Comparisons
 ```{r}
 # SWLS Post Hoc Comparisons
 # Estimated marginal means
@@ -402,7 +401,7 @@ pairs(swls_time, adjust = "bonferroni")
 ```
 
 ```{r}
-# Section 7.2: PSS Post Hoc Comparisons
+# PSS Post Hoc Comparisons
 # Estimated marginal means
 pss_emm <- emmeans(pss_aov, ~ group | time)
 
@@ -415,7 +414,7 @@ pairs(pss_time, adjust = "bonferroni")
 ```
 
 ```{r}
-# Section 7.3: RWS Post Hoc Comparisons
+# RWS Post Hoc Comparisons
 # Estimated marginal means
 rws_emm <- emmeans(rws_aov, ~ group | time)
 
@@ -445,7 +444,7 @@ summary(pss_emm)
 summary(rws_emm)
 ```
 
-# Section 8: Visualizations
+# Visualizations
 ```{r}
 # Summary Statistics for the Graphs
 swls_summary <- data_long %>%
@@ -455,8 +454,7 @@ swls_summary <- data_long %>%
     SD = sd(swls, na.rm = TRUE),
     N = sum(!is.na(swls)),
     SE = SD / sqrt(N),
-    .groups = "drop"
-  )
+    .groups = "drop")
 
 swls_summary
 
@@ -467,8 +465,7 @@ pss_summary <- pss_long %>%
     SD = sd(pss, na.rm = TRUE),
     N = sum(!is.na(pss)),
     SE = SD / sqrt(N),
-    .groups = "drop"
-  )
+    .groups = "drop")
 
 pss_summary
 
@@ -479,8 +476,7 @@ rws_summary <- rws_long %>%
     SD = sd(rws, na.rm = TRUE),
     N = sum(!is.na(rws)),
     SE = SD / sqrt(N),
-    .groups = "drop"
-  )
+    .groups = "drop")
 
 rws_summary
 ```
@@ -500,13 +496,11 @@ ggplot(swls_summary, aes(x = time, y = Mean, group = group, color = group)) +
     y = "Mean SWLS Score",
     color = "Group") +
   theme_minimal(base_size = 14)
+ggsave("SWLS_Figure.png", width = 8, height = 6, dpi = 300)
 ```
 
 ```{r}
-###############################################################
 # PSS Figure
-###############################################################
-
 ggplot(pss_summary, aes(x = time, y = Mean, group = group, color = group)) +
   geom_line(linewidth = 1.2) +
   geom_point(size = 3) +
@@ -520,6 +514,7 @@ ggplot(pss_summary, aes(x = time, y = Mean, group = group, color = group)) +
     y = "Mean PSS Score",
     color = "Group") +
   theme_minimal(base_size = 14)
+ggsave("PSS_Figure.png", width = 8, height = 6, dpi = 300)
 ```
 
 ```{r}
@@ -536,5 +531,142 @@ ggplot(rws_summary, aes(x = time, y = Mean, group = group, color = group)) +
     y = "Mean RWS Score",
     color = "Group") +
   theme_minimal(base_size = 14)
+ggsave("RWS_Figure.png", width = 8, height = 6, dpi = 300)
+```
+
+```{r}
+# Save the Figures
+ggsave("SWLS_Figure.png", width = 8, height = 6, dpi = 300)
+ggsave("PSS_Figure.png", width = 8, height = 6, dpi = 300)
+ggsave("RWS_Figure.png", width = 8, height = 6, dpi = 300)
+```
+
+# Exporting Tables and Figures
+```{r}
+# Table 1: Participant Characteristics
+table1 <- data %>%
+  group_by(group) %>%
+  summarise(
+    Participants = n(),
+    Age_Mean = mean(age, na.rm = TRUE),
+    Age_SD = sd(age, na.rm = TRUE),
+    SWLS_Baseline = mean(swls_b, na.rm = TRUE),
+    PSS_Baseline = mean(pss_b, na.rm = TRUE),
+    RWS_Baseline = mean(rws_b, na.rm = TRUE))
+
+table1 %>%
+  gt() %>%
+  tab_header(title = md("**Table 1**"), subtitle = "Participant Characteristics by Group") %>%
+  fmt_number(columns = where(is.numeric), decimals = 2)
+```
+
+```{r}
+# Helper Function
+mean_sd <- function(x){
+  sprintf("%.2f ± %.2f", mean(x, na.rm = TRUE), sd(x, na.rm = TRUE))}
+```
+
+```{r}
+# Table 2
+table2 <- data %>%
+  group_by(group) %>%
+  summarise(
+    SWLS_Baseline = mean_sd(swls_b),
+    SWLS_Day10 = mean_sd(swls_d10),
+    SWLS_Day30 = mean_sd(swls_d30),
+    PSS_Baseline = mean_sd(pss_b),
+    PSS_Day10 = mean_sd(pss_d10),
+    PSS_Day30 = mean_sd(pss_d30),
+    RWS_Baseline = mean_sd(rws_b),
+    RWS_Day10 = mean_sd(rws_d10),
+    RWS_Day30 = mean_sd(rws_d30))
+
+table2 %>%
+  gt() %>%
+  tab_header(title = md("**Table 2**"), subtitle = "Means (± SD) Across Assessment Time Points")
+```
+
+```{r}
+# Table 3
+swls_results$Outcome <- "SWLS"
+pss_results$Outcome <- "PSS"
+rws_results$Outcome <- "RWS"
+
+anova_table <- bind_rows(swls_results, pss_results, rws_results)
+
+anova_table %>%
+  select(Outcome, Effect, df, F, p.value, ges) %>%
+  gt() %>%
+  tab_header(title = md("**Table 3**"), subtitle = "Mixed Repeated-Measures ANOVA Results") %>%
+  fmt_number(columns = c(F, ges), decimals = 2)
+```
+
+```{r}
+library(rempsyc)
+library(flextable)
+
+# 1. Convert your raw data into nice_table objects
+table1_formatted <- nice_table(table1)
+table2_formatted <- nice_table(table2)
+
+# 2. Save them as images
+save_as_image(table1_formatted, path = "Table1.png")
+save_as_image(table2_formatted, path = "Table2.png")
+
+library(gt)
+
+# Convert using gt() instead of nice_table()
+anova_formatted <- gt(anova_table)
+
+# Save it normally
+gtsave(anova_formatted, "Table3.png")
+```
+
+```{r}
+# Descriptive Table
+library(gtsummary)
+library(gt)
+library(dplyr)
+
+# 1. Generate the demographic table
+demo_table <- data %>%
+  # Select only the variables you want to display and the splitting condition
+  select(age, gender, group) %>%
+  
+  # Build the summary table split by your randomized condition
+  tbl_summary(
+    by = group, # Splits columns by your randomized groups
+    missing = "ifany", # Automatically adds a row for missing data if any exist
+    missing_text = "Missing", # Label for your missing data rows
+    
+    # Specify custom formatting for age and gender
+    statistic = list(
+      age ~ "{mean} ({sd}) [range: {min}, {max}]", # Mean, SD, Min, Max
+      gender ~ "{n} ({p}%)"                        # Count and Percentage
+    ),
+    
+    # Provide clean labels for the table rows
+    label = list(
+      age ~ "Age (Years)",
+      gender ~ "Gender"
+    )
+  ) %>%
+  
+  # Add an "Overall" column to show the entire sample combined
+  add_overall(last = FALSE) %>% 
+  
+  # Bold the variable names for a clean, professional look
+  bold_labels()
+
+# 2. View your table in RStudio
+demo_table
+
+```
+
+```{r}
+# Convert the summary to a gt object and save as PNG
+demo_table %>%
+  as_gt() %>%
+  gtsave("Demographics_Table.png")
 ```
 

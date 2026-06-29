@@ -1,53 +1,43 @@
----
-title: "HUDM 5123 Final Project — Revised Analysis"
-author: "Luyi Xu & Jonathan Zhang"
-date: "2026-06-28"
-output: html_document
----
-
-<!--
-########################################################################
-# luyi note (READ ME FIRST — summary of what I changed and why)
-#
-# Hi Jonathan — thank you for building this out, your pipeline is doing
-# almost all the work and I kept nearly all of it. The one thing I
-# changed is the MODEL ENGINE, because our Methods section promises a
-# likelihood-based linear mixed-effects model (LMM) and the original
-# paper's PRIMARY analysis was an LMM too — not the repeated-measures
-# ANOVA. Here is the short version of the edits:
-#
-# 1. aov_ez() (afex)  ->  lmer() (lmerTest).
-#    Reason: aov_ez does LISTWISE DELETION. It drops the 12 participants
-#    who are missing any one occasion (9 of them from the MINDFULNESS arm),
-#    so it quietly throws away 12 observed PSS scores AND replicates only
-#    the paper's *secondary* complete-case ANOVA. The LMM keeps everyone
-#    with >= 1 observed score (available-case under MAR) and replicates the
-#    paper's *primary* (ITT) analysis. This also makes Results match the
-#    Methods we already wrote.
-#
-# 2. PSS is now the CONFIRMATORY outcome with two models:
-#       (a) replication LMM, numeric time 0/10/30  (matches Champion et al.)
-#       (b) extension LMM, categorical time         (our early-vs-late extension)
-#    SWLS and RWS are still here but clearly LABELED EXPLORATORY.
-#
-# 3. lmerTest (not base lme4) is loaded so we get the Satterthwaite
-#    degrees of freedom our Methods section promises.
-#
-# 4. Planned contrasts now come from emmeans on the categorical LMM, with
-#    Holm adjustment. The Baseline->Day 30 difference-in-change is PRIMARY.
-#
-# 5. The PSS figure now plots MODEL-estimated means with 95% CIs (our plan
-#    says model-estimated means, not raw cell means).
-#
-# 6. Your aov_ez ANOVA is NOT deleted — I moved it to the bottom as a
-#    complete-case SENSITIVITY check, which is exactly where it belongs.
-#
-# Search this file for "luyi note:" to see each change in context.
-########################################################################
--->
+# ########################################################################
+# # luyi note (READ ME FIRST — summary of what I changed and why)
+# #
+# # Hi Jonathan — thank you for building this out, your pipeline is doing
+# # almost all the work and I kept nearly all of it. The one thing I
+# # changed is the MODEL ENGINE, because our Methods section promises a
+# # likelihood-based linear mixed-effects model (LMM) and the original
+# # paper's PRIMARY analysis was an LMM too — not the repeated-measures
+# # ANOVA. Here is the short version of the edits:
+# #
+# # 1. aov_ez() (afex)  ->  lmer() (lmerTest).
+# #    Reason: aov_ez does LISTWISE DELETION. It drops the 12 participants
+# #    who are missing any one occasion (9 of them from the MINDFULNESS arm),
+# #    so it quietly throws away 12 observed PSS scores AND replicates only
+# #    the paper's *secondary* complete-case ANOVA. The LMM keeps everyone
+# #    with >= 1 observed score (available-case under MAR) and replicates the
+# #    paper's *primary* (ITT) analysis. This also makes Results match the
+# #    Methods we already wrote.
+# #
+# # 2. PSS is now the CONFIRMATORY outcome with two models:
+# #       (a) replication LMM, numeric time 0/10/30  (matches Champion et al.)
+# #       (b) extension LMM, categorical time         (our early-vs-late extension)
+# #    SWLS and RWS are still here but clearly LABELED EXPLORATORY.
+# #
+# # 3. lmerTest (not base lme4) is loaded so we get the Satterthwaite
+# #    degrees of freedom our Methods section promises.
+# #
+# # 4. Planned contrasts now come from emmeans on the categorical LMM, with
+# #    Holm adjustment. The Baseline->Day 30 difference-in-change is PRIMARY.
+# #
+# # 5. The PSS figure now plots MODEL-estimated means with 95% CIs (our plan
+# #    says model-estimated means, not raw cell means).
+# #
+# # 6. Your aov_ez ANOVA is NOT deleted — I moved it to the bottom as a
+# #    complete-case SENSITIVITY check, which is exactly where it belongs.
+# #
+# # Search this file for "luyi note:" to see each change in context.
+# ########################################################################
 
 # Load the Packages
-```{r setup, message=FALSE, warning=FALSE}
 # Packages
 library(httr)
 library(readxl)     # for reading .xlsx files
@@ -77,62 +67,56 @@ library(gtsummary)
 # Methods text (otherwise emmeans may default to Kenward-Roger if pbkrtest is
 # installed). Either is defensible; we just picked one and documented it.
 emmeans::emm_options(lmer.df = "satterthwaite")
-```
 
 # Uploading the Dataset
-```{r}
 # luyi note: the GitHub download is fine for us, but for the GRADED submission
 # the script must also run from the attached local file (the rubric wants
 # replicable results from what we hand in). I left your download in place and
 # added a commented local-read fallback right below it. Use whichever path the
 # grader has, and make sure the submitted .Rmd sits next to "Raw_Data.xlsx".
 
-github_raw_url <- "https://github.com/ZeddyCraft/HUDM-5123-Final-Project/raw/refs/heads/main/Raw%20Data.xlsx"
-temp_file <- tempfile(fileext = ".xlsx")
-GET(github_raw_url, write_disk(temp_file, overwrite = TRUE))
-data <- read_excel(temp_file)
+#github_raw_url <- "https://github.com/ZeddyCraft/HUDM-5123-Final-Project/raw/refs/heads/main/Raw%20Data.xlsx"
+#temp_file <- tempfile(fileext = ".xlsx")
+#GET(github_raw_url, write_disk(temp_file, overwrite = TRUE))
+#data <- read_excel(temp_file)
 
 # luyi note: local fallback for the submission (uncomment this and comment the
 # three lines above if reading the attached file directly):
-# data <- read_excel("Raw_Data.xlsx")
+data <- read_excel("Raw_Data.xlsx")
 
 head(data)
-```
 
 # Importing and Cleaning the Dataset
-```{r}
 data <- clean_names(data)
 data <- data %>% remove_empty(which = "rows")
 data <- data %>% mutate(id = 1:n())
 data <- data %>% relocate(id)
 glimpse(data)
-```
 
 # Rename variables
-```{r}
 data <- data %>%
   rename(
     group = group_a_mindfulness_b_wait_list,
     gender = gender_1_male_2_female,
-
+    
     swls_b = swls_baseline,
     swls_d10 = swls_day_10,
     swls_d30 = swls_day_30,
-
+    
     pss_b = pss_baseline,
     pss_d10 = pss_day_10,
     pss_d30 = pss_day_30,
-
+    
     rws_b = rws_baseline,
     rws_d10 = rws_day_10,
     rws_d30 = rws_day_30,
-
+    
     sessions_10 = number_of_days_headspace_used_between_baseline_to_day_10,
     sessions_30 = number_of_days_headspace_used_between_day_10_and_day_30,
-
+    
     enjoy_10 = to_what_to_extent_are_you_finding_completing_the_activities_enjoyable_day_10_1_not_at_all_to_7_extremely,
     enjoy_30 = to_what_to_extent_are_you_finding_completing_the_activities_enjoyable_day_30_1_not_at_all_to_7_extremely,
-
+    
     difficulty_10 = to_what_extent_are_you_finding_the_activity_difficult_to_complete_day_10_1_very_difficult_to_7_very_easy,
     difficulty_30 = to_what_extent_are_you_finding_the_activity_difficult_to_complete_day_30_1_very_difficult_to_7_very_easy
   )
@@ -144,10 +128,8 @@ data <- data %>%
     gender = factor(gender, levels = c(1, 2),
                     labels = c("Male", "Female"))
   )
-```
 
 # Descriptive Statistics
-```{r}
 table(data$group)
 prop.table(table(data$group)) * 100
 describe(data$age)
@@ -164,9 +146,7 @@ data %>%
 
 table(data$group, data$gender)
 prop.table(table(data$group, data$gender), margin = 1) * 100
-```
 
-```{r}
 # Means and Standard Deviations (kept exactly as you had it — good descriptive table)
 data %>%
   group_by(group) %>%
@@ -181,10 +161,8 @@ data %>%
     RWS_D10_Mean = mean(rws_d10, na.rm = TRUE), RWS_D10_SD = sd(rws_d10, na.rm = TRUE),
     RWS_D30_Mean = mean(rws_d30, na.rm = TRUE), RWS_D30_SD = sd(rws_d30, na.rm = TRUE)
   )
-```
 
 # Reshaping the Data (wide to long)
-```{r}
 # luyi note: I kept your three long datasets, but added a NUMERIC time column
 # (time_num = 0/10/30) to each. The replication LMM needs numeric time to match
 # the paper; the extension LMM uses the factor "time". Both live in the same
@@ -200,7 +178,7 @@ data_long <- data %>%
                      time == "swls_d10" ~ "Day 10",
                      time == "swls_d30" ~ "Day 30"),
     time = factor(time, levels = c("Baseline", "Day 10", "Day 30")),
-    time_num = recode(as.character(time), "Baseline" = 0, "Day 10" = 10, "Day 30" = 30)  # luyi note: numeric time
+    time_num = dplyr::case_when(time == "Baseline" ~ 0, time == "Day 10" ~ 10, time == "Day 30" ~ 30)  # luyi note: numeric time
   )
 
 # Perceived Stress Scale (PSS) — CONFIRMATORY outcome
@@ -212,7 +190,7 @@ pss_long <- data %>%
                      time == "pss_d10" ~ "Day 10",
                      time == "pss_d30" ~ "Day 30"),
     time = factor(time, levels = c("Baseline", "Day 10", "Day 30")),
-    time_num = recode(as.character(time), "Baseline" = 0, "Day 10" = 10, "Day 30" = 30)
+    time_num = dplyr::case_when(time == "Baseline" ~ 0, time == "Day 10" ~ 10, time == "Day 30" ~ 30)
   )
 
 # Resilience Scale (RWS)
@@ -224,14 +202,12 @@ rws_long <- data %>%
                      time == "rws_d10" ~ "Day 10",
                      time == "rws_d30" ~ "Day 30"),
     time = factor(time, levels = c("Baseline", "Day 10", "Day 30")),
-    time_num = recode(as.character(time), "Baseline" = 0, "Day 10" = 10, "Day 30" = 30)
+    time_num = dplyr::case_when(time == "Baseline" ~ 0, time == "Day 10" ~ 10, time == "Day 30" ~ 30)
   )
 
 glimpse(pss_long)
-```
 
 # Assumption / Data Screening (descriptive)
-```{r}
 # luyi note: I kept all of your screening (missingness, boxplots, outliers,
 # Shapiro, Q-Q, Levene). For the LMM these are DESCRIPTIVE screening rather
 # than formal model assumptions — the formal LMM diagnostics are residual-based
@@ -251,9 +227,7 @@ n_complete_pss <- pss_long %>% group_by(id) %>%
   summarise(n_obs = sum(!is.na(pss)), .groups = "drop") %>%
   count(complete = n_obs == 3)
 n_complete_pss
-```
 
-```{r}
 # Boxplots
 ggplot(data_long, aes(x = time, y = swls, fill = group)) + geom_boxplot() +
   labs(title = "SWLS by Time and Group", x = "Time", y = "SWLS Score") + theme_minimal()
@@ -261,35 +235,27 @@ ggplot(pss_long, aes(x = time, y = pss, fill = group)) + geom_boxplot() +
   labs(title = "PSS by Time and Group", x = "Time", y = "PSS Score") + theme_minimal()
 ggplot(rws_long, aes(x = time, y = rws, fill = group)) + geom_boxplot() +
   labs(title = "RWS by Time and Group", x = "Time", y = "RWS Score") + theme_minimal()
-```
 
-```{r}
 # Outlier detection (descriptive)
 data_long %>% group_by(group, time) %>% identify_outliers(swls)
 pss_long  %>% group_by(group, time) %>% identify_outliers(pss)
 rws_long  %>% group_by(group, time) %>% identify_outliers(rws)
-```
 
-```{r}
 # Normality per cell (descriptive)
 data_long %>% group_by(group, time) %>% shapiro_test(swls)
 pss_long  %>% group_by(group, time) %>% shapiro_test(pss)
 rws_long  %>% group_by(group, time) %>% shapiro_test(rws)
-```
 
-```{r}
 # Levene (descriptive). luyi note: drop NA rows so Levene runs cleanly.
 leveneTest(swls ~ group * time, data = data_long %>% drop_na(swls))
 leveneTest(pss  ~ group * time, data = pss_long  %>% drop_na(pss))
 leveneTest(rws  ~ group * time, data = rws_long  %>% drop_na(rws))
-```
 
 # =====================================================================
 # CONFIRMATORY ANALYSIS — PERCEIVED STRESS (PSS)
 # =====================================================================
 
 ## PSS Model 1 — Replication LMM (numeric time, matches Champion et al.)
-```{r}
 # luyi note: this is the REPLICATION model. Champion et al. coded time as
 # 0/10/30, group as 1/0, with random intercepts AND slopes. To make our
 # interaction coefficient carry the SAME SIGN as their reported beta = -0.28,
@@ -307,10 +273,8 @@ isSingular(pss_rep)
 
 summary(pss_rep)                      # group_rep:time_num row ~ the paper's interaction beta
 confint(pss_rep, method = "Wald")     # 95% CI for the interaction
-```
 
 ## PSS Model 2 — Extension LMM (categorical time; PRIMARY for our contrasts)
-```{r}
 # luyi note: this is our EXTENSION + the model we use for all planned contrasts.
 # Categorical time lets baseline->Day 10 (early) change be separated from
 # Day 10->Day 30 (late) change instead of forcing one linear slope.
@@ -320,10 +284,8 @@ isSingular(pss_ext)
 # Satterthwaite F-tests; the group:time row is the OMNIBUS interaction test.
 anova(pss_ext)
 summary(pss_ext)
-```
 
 ## PSS — does the extension improve on the linear form? (clean nested LRT)
-```{r}
 # luyi note: linear-in-time is a special case of (nested within) categorical
 # time, so this is a clean test of whether the trajectory departs from linear.
 # Both refit with ML and SAME random structure so only the fixed time form
@@ -332,10 +294,8 @@ summary(pss_ext)
 pss_lin_ri <- lmer(pss ~ group * time_num + (1 | id), data = pss_long, REML = FALSE)
 pss_cat_ri <- lmer(pss ~ group * time     + (1 | id), data = pss_long, REML = FALSE)
 anova(pss_lin_ri, pss_cat_ri)   # AIC/BIC + LRT for departure from linearity
-```
 
 ## PSS — Planned contrasts (Holm-adjusted; Baseline->Day 30 is PRIMARY)
-```{r}
 # luyi note: this replaces your pairs(..., adjust="bonferroni"). It computes the
 # BETWEEN-CONDITION DIFFERENCE-IN-CHANGE (Mindfulness minus Wait-list) for
 # baseline->Day 10 and baseline->Day 30. The Day 30 row is our PRIMARY estimand.
@@ -348,27 +308,21 @@ did_pss <- contrast(
 )
 did_pss
 confint(did_pss)
-```
 
-```{r}
 # Extension narrative: WITHIN-group early vs late change (consecutive contrasts)
 # luyi note: this is what makes the categorical model worth doing — it shows
 # whether each group changed early (Day10-Baseline) vs late (Day30-Day10).
 emm_pss_tg <- emmeans(pss_ext, ~ time | group)
 within_change_pss <- contrast(emm_pss_tg, "consec", adjust = "holm")
 within_change_pss
-```
 
-```{r}
 # Supplementary (descriptive): group difference at each occasion.
 # luyi note: keep this as SUPPLEMENTARY only — our Methods says the headline
 # table is the difference-in-change contrasts, not every pairwise cell.
 emm_pss_gt <- emmeans(pss_ext, ~ group | time)
 pairs(emm_pss_gt, adjust = "holm")
-```
 
 ## PSS — Standardized effect size for the primary (Day 30) contrast
-```{r}
 # luyi note: matches the paper's between-group d = (difference in change) /
 # (pooled baseline SD). Champion et al. reported d ~ 1.42-1.53 for PSS; ours
 # will be close (sign is negative here = stress reduced in mindfulness vs WL).
@@ -381,20 +335,16 @@ d30_estimate <- did_df$estimate[grepl("Day 30", did_df[[1]])]
 d_primary_pss <- d30_estimate / base_sd_pss
 cat("Pooled baseline SD (PSS):", round(base_sd_pss, 2),
     "| Primary Day-30 standardized effect:", round(d_primary_pss, 2), "\n")
-```
 
 ## PSS — LMM diagnostics (these are the REAL assumption checks for our model)
-```{r}
 # luyi note: NEW. For an LMM the assumptions are about residuals and random
 # effects, not sphericity. Report these for the final PSS extension model.
 plot(pss_ext)                                   # residuals vs fitted (constant variance)
 qqnorm(resid(pss_ext)); qqline(resid(pss_ext))  # residual normality
 re_pss <- ranef(pss_ext)$id[, 1]
 qqnorm(re_pss); qqline(re_pss)                   # random-intercept normality
-```
 
 ## PSS — Model-estimated profile plot (95% CI)
-```{r}
 # luyi note: our plan calls for MODEL-estimated means, so this plots emmeans
 # from the LMM with 95% CIs (replacing the raw-mean + SE version).
 pss_emm_plot <- as.data.frame(emmeans(pss_ext, ~ group * time))
@@ -407,7 +357,6 @@ ggplot(pss_emm_plot, aes(x = time, y = emmean, group = group, color = group)) +
        x = "Assessment Time", y = "Estimated Mean PSS (95% CI)", color = "Group") +
   theme_minimal(base_size = 14)
 ggsave("PSS_Figure.png", width = 8, height = 6, dpi = 300)
-```
 
 # =====================================================================
 # EXPLORATORY OUTCOMES — SWLS and RWS
@@ -416,7 +365,6 @@ ggsave("PSS_Figure.png", width = 8, height = 6, dpi = 300)
 # number of confirmatory tests. I used a small helper to avoid duplicating the
 # PSS code; the PSS block above is the canonical, fully-commented template.
 # =====================================================================
-```{r}
 fit_lmm_pair <- function(df, dv){
   f_lin <- as.formula(paste0(dv, " ~ group * time_num + (1 | id)"))
   f_cat <- as.formula(paste0(dv, " ~ group * time     + (1 | id)"))
@@ -449,12 +397,10 @@ explore_outcome <- function(df, dv){
 
 swls_fits <- explore_outcome(data_long, "swls")  # data_long holds SWLS
 rws_fits  <- explore_outcome(rws_long,  "rws")
-```
 
 # =====================================================================
 # SENSITIVITY ANALYSIS — complete-case
 # =====================================================================
-```{r}
 # luyi note: your aov_ez ANOVA is NOT thrown away — it becomes a complete-case
 # sensitivity check (PSS only). We also refit the SAME categorical LMM on the
 # 62 completers and confirm the interaction conclusion is unchanged.
@@ -471,12 +417,10 @@ anova(pss_ext_cc)
 pss_aov_cc <- aov_ez(id = "id", dv = "pss", between = "group", within = "time",
                      data = pss_complete, type = 3)
 nice(pss_aov_cc)
-```
 
 # =====================================================================
 # RESULTS TABLES (APA-style export)
 # =====================================================================
-```{r}
 # Table 1 — participant characteristics (kept from your script)
 table1 <- data %>%
   group_by(group) %>%
@@ -492,9 +436,7 @@ table1 %>%
   gt() %>%
   tab_header(title = md("**Table 1**"), subtitle = "Participant Characteristics by Group") %>%
   fmt_number(columns = where(is.numeric), decimals = 2)
-```
 
-```{r}
 # Table 2 — PSS confirmatory results: omnibus interaction + planned contrasts
 # luyi note: this replaces the ANOVA results table. It reports the LMM omnibus
 # interaction and the Holm-adjusted difference-in-change contrasts (the numbers
@@ -511,9 +453,7 @@ gt(pss_contrasts_tbl) %>%
              subtitle = "PSS difference-in-change contrasts (Mindfulness − Wait-list), Holm-adjusted")
 
 pss_omnibus  # report F, df, p for the group x time interaction in text/table
-```
 
-```{r}
 # Demographics table (kept from your script)
 demo_table <- data %>%
   select(age, gender, group) %>%
@@ -526,21 +466,18 @@ demo_table <- data %>%
   add_overall(last = FALSE) %>%
   bold_labels()
 demo_table
-```
 
-<!--
-########################################################################
-# luyi note (handoff checklist for you, Jonathan):
-#  - Run top-to-bottom once and check isSingular() on pss_rep. If TRUE, switch
-#    to the "||" or random-intercept fallback I left commented, and tell me
-#    which one you kept so I can write one sentence about it in Methods.
-#  - The PSS group:time interaction (anova(pss_ext)) is our headline number.
-#    The did_pss "Day 30" row is the PRIMARY effect; its CI + d go in the text.
-#  - SWLS/RWS results print from explore_outcome() — label them EXPLORATORY in
-#    the writeup (no strong claims).
-#  - I rewrote nothing in your Methods; this script now MATCHES the Methods we
-#    already wrote. The Results + Discussion prose still need updating from
-#    "three ANOVAs" to "PSS LMM (confirmatory) + SWLS/RWS (exploratory)" — I'll
-#    take that pass next.
-########################################################################
--->
+# ########################################################################
+# # luyi note (handoff checklist for you, Jonathan):
+# #  - Run top-to-bottom once and check isSingular() on pss_rep. If TRUE, switch
+# #    to the "||" or random-intercept fallback I left commented, and tell me
+# #    which one you kept so I can write one sentence about it in Methods.
+# #  - The PSS group:time interaction (anova(pss_ext)) is our headline number.
+# #    The did_pss "Day 30" row is the PRIMARY effect; its CI + d go in the text.
+# #  - SWLS/RWS results print from explore_outcome() — label them EXPLORATORY in
+# #    the writeup (no strong claims).
+# #  - I rewrote nothing in your Methods; this script now MATCHES the Methods we
+# #    already wrote. The Results + Discussion prose still need updating from
+# #    "three ANOVAs" to "PSS LMM (confirmatory) + SWLS/RWS (exploratory)" — I'll
+# #    take that pass next.
+# ########################################################################

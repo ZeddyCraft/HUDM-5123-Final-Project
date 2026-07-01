@@ -1,6 +1,8 @@
 # ########################################################################
 # Replication of Mindfulness Intervention Study by Champion et al. (2018)
 # HUMD 5123 Final Project
+## Authors: Luyi Xu & Jonathan Zhang
+## Date: June 30th, 2026
 # ########################################################################
 # Load the Packages
 ```{r}
@@ -33,7 +35,7 @@ data <- read_excel(temp_file)
 ```
 
 ```{r}
-# In case github doesn't retrieve the dataset...
+# In case Github is not retrieve the dataset...
 data <- read_excel("Raw Data.xlsx") # attach raw dataset and then run it
 head(data)
 ```
@@ -250,8 +252,9 @@ anova(pss_lin_ri, pss_cat_ri)   # AIC/BIC + LRT for departure from linearity
 ## PSS — Planned contrasts (Holm-adjusted; Baseline->Day 30 is PRIMARY)
 emm_pss <- emmeans(pss_ext, ~ time * group)
 
-did_pss <- contrast(emm_pss, interaction = c("trt.vs.ctrl1", "pairwise"),  # time vs Baseline; group MM vs WL adjust = "holm")
+did_pss <- contrast(emm_pss, interaction = c("trt.vs.ctrl1", "pairwise"))  # time vs Baseline; group MM vs WL adjust = "holm")
 did_pss
+
 confint(did_pss)
 ```
 
